@@ -18,6 +18,7 @@ Typed as `/develop` in Claude and `$develop` in Codex. "Start a subagent" below 
 - **The main session coordinates; subagents read and write code.** One subagent per ticket, never two tickets in one. Quote subagent reports; never rewrite a failure into a success.
 - **Anything that must outlive this session goes in a file**, never only in context: `spec.md`, the ticket's `## Comments`, or the log.
 - Ponytail stays on throughout: simplest approach first, delete before adding.
+- **If a skill can't be called directly** (some, like `grill-with-docs`, `to-spec`, `to-tickets` and `implement`, can only be typed by the user), read its `SKILL.md` from the skills folder and follow it. Tell subagents the same.
 
 ## Models
 
