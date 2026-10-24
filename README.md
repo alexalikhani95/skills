@@ -50,6 +50,7 @@ Then add the hook to `~/.claude/settings.json` under `hooks.SessionStart`:
 | `implement` | Builds one ticket, or small work straight from the conversation. | [Matt Pocock](https://github.com/mattpocock/skills) |
 | `implement-spec` | Builds all the tickets in one run, using parallel agents. | [Matt Pocock](https://github.com/mattpocock/skills) |
 | `tdd` | Builds features or fixes bugs test-first, one small step at a time. | [Matt Pocock](https://github.com/mattpocock/skills) |
+| `diagnosing-bugs` | Tracks down hard bugs and slowdowns by first getting a command that reliably shows the bug. | [Matt Pocock](https://github.com/mattpocock/skills) |
 | `code-review` | Reviews changes against the repo's standards and the original plan. | [Matt Pocock](https://github.com/mattpocock/skills) |
 | `retro` | Looks back on a session and suggests changes to prevent repeat mistakes. | [Matt Pocock](https://github.com/mattpocock/skills) |
 | `wayfinder` | Plans work too big for one session as a map of decisions on the issue tracker. | [Matt Pocock](https://github.com/mattpocock/skills) |
