@@ -1,5 +1,5 @@
 // Drives graph.mjs with a fake AI and a fake shell, so the steps and loops are checked
-// without spending tokens. Run: node --test ~/.claude/skills/develop/graph.test.mjs
+// without spending tokens. Run: node --test ~/.claude/skills/graph/graph.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from "node:fs";

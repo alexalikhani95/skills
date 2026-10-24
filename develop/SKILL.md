@@ -18,7 +18,6 @@ Typed as `/develop` in Claude and `$develop` in Codex. "Start a subagent" below 
 - **The main session coordinates; subagents read and write code.** One subagent per ticket, never two tickets in one. Quote subagent reports; never rewrite a failure into a success.
 - **Anything that must outlive this session goes in a file**, never only in context: `spec.md`, the ticket's `## Comments`, or the log.
 - Ponytail stays on throughout: simplest approach first, delete before adding.
-- A skill that can't be called directly (typed-only skills such as `implement`): read its `SKILL.md` from the skills folder and follow it.
 
 ## Models
 
@@ -69,25 +68,15 @@ Check findings go in `tickets/<feature>/checks/<check>.md`. Brief every checking
 
 - Run the `to-tickets` skill. Each ticket also states: its **label**, its **test seams** (or "none") and whether it is **risky** (and why).
 - **Tickets check**: **strong** subagent, same shape as the spec check: "Could you build each ticket from the ticket plus `spec.md` alone? Are the seams and Blocked-by lines right?"
-- **Stop 2: approve the tickets.** *What happens next* holds the graph command, with the resume prompt as the backup.
+- **Stop 2: approve the tickets.** *What happens next* holds the paste-ready resume prompt.
 - On approval:
   1. Append the user's answers and any "approve, but…" condition to `spec.md` under `## Stop 2 decisions`.
-  2. Write `tickets/<feature>/state.json` for the graph:
-     ```json
-     { "tool": "claude", "step": "build",
-       "tickets": [{ "id": "01", "path": "tickets/<feature>/issues/01-<slug>.md", "strength": "light", "risky": false, "built": null }] }
-     ```
-     `tool` is the tool you're running in. Tickets go in Blocked-by order. `strength` comes from the label (new design → strong; pattern or boilerplate → light); `risky` from the ticket.
-  3. Commit spec, tickets, log, checks and state (`docs: spec and tickets for <feature>`), then push.
-  4. **Stop, always.** Never carry on coding in this session. Give the user both ways on:
-     - **Graph (preferred):** `node ~/.claude/skills/develop/graph.mjs <feature>`. A program runs steps 4–6, a fresh AI per step, and sends a Mac notification when the PR is ready or a step fails. They then run it again with `merge`, `keep`, `iterate` or `discard` (step 8 is done by the program). It uses the tool from `state.json`; `--tool codex` or `--tool claude` switches.
-     - **Backup:** open a new session and paste `/develop --resume <feature>` (Codex: `$develop --resume <feature>`).
+  2. Commit spec, tickets, log and checks (`docs: spec and tickets for <feature>`), then push.
+  3. **Stop, always.** Tell the user to open a new session and paste `/develop --resume <feature>` (Codex: `$develop --resume <feature>`). Never carry on coding in this session.
 
 ### Resume
 
 Go to `.worktrees/feature-<feature>` and work there. Read `spec.md` (including `## Stop 2 decisions` and `## Discovered`), the tickets and `log.md`. Pick up at the first step the log hasn't finished: skip tickets with a `built` line, and if a PR is already open, go to the step the log points at.
-
-**After the graph's `iterate`:** turn what the user wants changed into new tickets (append them to `state.json` with `"built": null`), set `"step": "build"` and `"round": 0`, commit, push, and give them the graph command again.
 
 ### 4. Build
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// The second half of /develop as code: builds the tickets, self-checks, opens the PR,
+// The second half of /develop as a program: builds the tickets, self-checks, opens the PR,
 // runs up to 2 review rounds, then stops for the merge decision.
 // A program walks the steps; each step is one fresh AI run (Claude or Codex, no chat).
 //
@@ -7,7 +7,7 @@
 //   node graph.mjs <feature> merge      squash-merge and clean up   (also: keep, iterate, discard)
 //   --tool claude|codex                 use that tool instead of the one /develop started in
 //
-// Reads and writes tickets/<feature>/state.json in the feature's worktree; /develop writes it at stop 2.
+// Reads and writes tickets/<feature>/state.json in the feature's worktree; the graph skill writes it.
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync, appendFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -102,7 +102,7 @@ export function run(feature, action, deps = { sh, ai, notify }, tool) {
   const wt = join(root, ".worktrees", `feature-${feature}`);
   const dir = join(wt, "tickets", feature);
   const stateFile = join(dir, "state.json");
-  if (!existsSync(stateFile)) throw new Stop(`no ${stateFile}; run /develop up to stop 2 first`);
+  if (!existsSync(stateFile)) throw new Stop(`no ${stateFile}; run /graph <feature> first, after /develop's stop 2`);
   const state = JSON.parse(readFileSync(stateFile, "utf8"));
   if (tool) state.tool = tool;
   const save = () => writeFileSync(stateFile, JSON.stringify(state, null, 2) + "\n");
@@ -312,7 +312,7 @@ Run \`graph ${feature} <merge|keep|iterate|discard>\` when you're ready.
     if (choice === "keep") return console.log(`PR #${state.pr} stays open. Worktree: ${wt}`);
     if (choice === "iterate") {
       return console.log(
-        `Run /develop --resume ${feature} and say what to change. It adds tickets and sets the step back to build; then run graph ${feature} again.`,
+        `Run /graph ${feature} iterate and say what to change. It adds tickets and sets the step back to build; then run graph ${feature} again.`,
       );
     }
     if (choice === "discard") {
