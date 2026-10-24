@@ -70,6 +70,7 @@ args = ["@playwright/mcp@latest"]
 | `comments` | Adds short, simple comments to new code in the current changes. | Mine |
 | `commit-message` | Suggests a short, plain-English commit message for staged changes. | Mine |
 | `simplify` | Rewrites the last reply in shorter, simpler language. | Mine |
+| `recap` | Tells you where you left off in a project after time away, from git, PRs, tickets and your last sessions. Read-only. | Mine |
 | `develop` | Runs one change from idea to merged PR using the skills below, stopping for you at the spec, the tickets and the merge. Modelled on TechGarden's `/develop`. | Mine |
 | `grill-with-docs` | Questions you hard on a plan, writing down decisions and terms as it goes. | [Matt Pocock](https://github.com/mattpocock/skills) |
 | `grill-me` | Questions you hard on a plan, without writing any docs. | [Matt Pocock](https://github.com/mattpocock/skills) |
