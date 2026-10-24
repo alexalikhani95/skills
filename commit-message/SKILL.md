@@ -20,6 +20,7 @@ Look at what's staged and suggest a commit message for it. Then ask before commi
 
 - One line, under ~70 characters. No body paragraph unless the change is large enough that a one-liner would hide something important — and even then, keep it to one short follow-up sentence.
 - Plain English. No jargon, no internal abbreviations, nothing that needs domain context to parse. Someone outside the project should understand what happened.
+- Jargon includes process and methodology words, not just technical ones: "domain glossary", "ADR", "ubiquitous language", "spec", "scaffold", "tracer bullet", "bounded context". Say what the thing *is* in everyday words instead — "list of the words the app uses", "notes on why we chose the tech", "outline of the first version". Before presenting, check each word: would someone who has never seen this repo know what it means? If not, swap it.
 - Lead with what changed in plain terms; only add why if it's not obvious from the what.
 - Use plain verbs (add, fix, remove, rename, move) instead of vague ones (update, improve, enhance, handle).
 - Don't describe the diff mechanically ("changed 3 files", "modified function"). Describe the actual change in the code's behavior or purpose.
