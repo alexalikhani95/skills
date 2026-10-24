@@ -14,7 +14,7 @@ My skills for Claude Code and Codex. This repo is the one real copy; both tools 
 2. adds a Codex shortcut for any new skill,
 3. removes shortcuts for skills that were deleted.
 
-It runs automatically at the start of every Claude session (a `SessionStart` hook in `~/.claude/settings.json`). To run it by hand:
+It runs automatically at the start of every Claude and Codex session (a `SessionStart` hook in `~/.claude/settings.json` and `~/.codex/hooks.json`). To run it by hand:
 
 ```sh
 sh ~/.claude/skills/sync.sh
@@ -33,6 +33,34 @@ Then add the hook to `~/.claude/settings.json` under `hooks.SessionStart`:
 
 ```json
 { "type": "command", "command": "sh ~/.claude/skills/sync.sh >/dev/null 2>&1 || true", "timeout": 30, "async": true }
+```
+
+And the same for Codex, in `~/.codex/hooks.json` under `hooks.SessionStart`:
+
+```json
+{ "type": "command", "command": "sh ~/.claude/skills/sync.sh >/dev/null 2>&1 || true", "timeout": 30 }
+```
+
+`develop` also needs two plugins, installed in both tools:
+
+```sh
+# Claude (inside a session)
+/plugin marketplace add DietrichGebert/ponytail
+/plugin install ponytail@ponytail
+/plugin marketplace add TechGardenCode/naive-user
+/plugin install naive-user@naive-user
+
+# Codex
+codex plugin marketplace add DietrichGebert/ponytail && codex plugin add ponytail@ponytail
+codex plugin marketplace add TechGardenCode/naive-user && codex plugin add naive-user@naive-user
+```
+
+naive-user drives a real browser. Claude's plugin brings the browser tool with it; Codex needs it added to `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.playwright]
+command = "npx"
+args = ["@playwright/mcp@latest"]
 ```
 
 ## Skills
@@ -62,3 +90,28 @@ Then add the hook to `~/.claude/settings.json` under `hooks.SessionStart`:
 | `setup-matt-pocock-skills` | One-time setup of a repo (issue tracker, labels, docs) for the skills above. | [Matt Pocock](https://github.com/mattpocock/skills) |
 
 Matt's usual order: `grill-with-docs` → `to-spec` → `to-tickets` → `implement` (or `implement-spec`) → `retro`. For small work, skip straight to `implement`. `develop` runs this order for you.
+
+## `develop`
+
+Runs one change from idea to merged PR. Modelled on TechGarden's `/develop`, built on Matt's skills, and works the same in Claude and Codex.
+
+**Start it:** `/develop <what to build>` in Claude, `$develop <what to build>` in Codex. To pick up later: `/develop --resume <feature>`.
+
+**What happens:**
+
+1. Sets up a fresh worktree and picks a lane: **fast** (copies an existing pattern) or **full**. Tiny fixes don't need `develop` at all.
+2. Talks the idea through (`grill-with-docs`) and writes the spec (`to-spec`). A fresh subagent checks it. **Stop 1: you approve the spec.**
+3. Splits it into tickets (`to-tickets`), checked the same way. **Stop 2: you approve the tickets.** Then you start a new session and paste the resume command it gives you.
+4. Builds each ticket with its own subagent (`implement`, tests first only where agreed). Risky tickets get an extra reviewer.
+5. Self-check: build, lint and tests, `ponytail-review`, docs updated, reusable patterns noted, Playwright tests if the project has Playwright.
+6. Opens the PR and runs up to 2 rounds of `code-review`, Playwright and naive-user, fixing what they find.
+7. **Stop 3: you choose** merge, keep the PR open, keep working, or throw it away.
+8. Cleans up and sends one summary, with a cost line in the PR.
+
+The fast lane has a single stop before coding, plus the merge stop.
+
+**Rules:** starting `develop` counts as permission to commit and push on its own feature branch. It never touches `main` without stop 3.
+
+**Models:** Claude uses Sonnet for routine work and Opus for hard work, never Fable. Codex uses GPT-6.1-Sol (medium effort, or high for hard work), never Astra.
+
+**Needs:** a project built from [agentic-template](https://github.com/alexalikhani95/agentic-template) (`AGENTS.md` commands, `tickets/`, worktree rules in `docs/agents/workflow.md`), plus the plugins above. Projects with a UI also want a `running-the-app` skill so naive-user can start the app.
