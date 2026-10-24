@@ -111,6 +111,15 @@ Runs one change from idea to merged PR. Modelled on TechGarden's `/develop`, bui
 
 The fast lane has a single stop before coding, plus the merge stop.
 
+**The graph (steps 4–8 as a program):** after stop 2 you can run
+
+```sh
+node ~/.claude/skills/develop/graph.mjs <feature>            # builds, self-checks, opens the PR, reviews
+node ~/.claude/skills/develop/graph.mjs <feature> merge      # or keep, iterate, discard
+```
+
+instead of starting a new session. A program walks the steps and starts a fresh AI for each one (`claude -p` or `codex exec`, in each tool's safety mode), so steps can't be skipped and nothing fills up. A failed step is retried once on the strong model, then it stops. Running it again carries on from `tickets/<feature>/state.json`. It sends a Mac notification when the PR is ready or a step fails. `--tool claude|codex` switches tool. Tests: `node --test ~/.claude/skills/develop/graph.test.mjs`. The `/develop --resume` way stays as a backup until the graph has proven itself.
+
 **Rules:** starting `develop` counts as permission to commit and push on its own feature branch. It never touches `main` without stop 3.
 
 **Models:** Claude uses Sonnet for routine work and Opus for hard work, never Fable. Codex uses GPT-6.1-Sol (medium effort, or high for hard work), never Astra.
