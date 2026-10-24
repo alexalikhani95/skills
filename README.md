@@ -42,6 +42,7 @@ Then add the hook to `~/.claude/settings.json` under `hooks.SessionStart`:
 | `comments` | Adds short, simple comments to new code in the current changes. | Mine |
 | `commit-message` | Suggests a short, plain-English commit message for staged changes. | Mine |
 | `simplify` | Rewrites the last reply in shorter, simpler language. | Mine |
+| `develop` | Runs one change from idea to merged PR using the skills below, stopping for you at the spec, the tickets and the merge. Modelled on TechGarden's `/develop`. | Mine |
 | `grill-with-docs` | Questions you hard on a plan, writing down decisions and terms as it goes. | [Matt Pocock](https://github.com/mattpocock/skills) |
 | `grill-me` | Questions you hard on a plan, without writing any docs. | [Matt Pocock](https://github.com/mattpocock/skills) |
 | `grilling` | The shared questioning step the two grill skills use. | [Matt Pocock](https://github.com/mattpocock/skills) |
@@ -60,4 +61,4 @@ Then add the hook to `~/.claude/settings.json` under `hooks.SessionStart`:
 | `teach` | Teaches you a new skill or concept inside the current project. | [Matt Pocock](https://github.com/mattpocock/skills) |
 | `setup-matt-pocock-skills` | One-time setup of a repo (issue tracker, labels, docs) for the skills above. | [Matt Pocock](https://github.com/mattpocock/skills) |
 
-Matt's usual order: `grill-with-docs` → `to-spec` → `to-tickets` → `implement` (or `implement-spec`) → `retro`. For small work, skip straight to `implement`.
+Matt's usual order: `grill-with-docs` → `to-spec` → `to-tickets` → `implement` (or `implement-spec`) → `retro`. For small work, skip straight to `implement`. `develop` runs this order for you.
