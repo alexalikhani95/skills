@@ -35,6 +35,7 @@ function fakes(root, reply) {
       sh(cmd) {
         calls.sh.push(cmd);
         if (cmd.startsWith("git rev-parse --show-toplevel")) return { code: 0, out: root };
+        if (cmd === "git branch --show-current") return { code: 0, out: "feature/signup\n" };
         if (cmd.startsWith("gh pr create")) return { code: 0, out: "https://github.com/me/app/pull/7\n" };
         return { code: 0, out: "" };
       },
@@ -107,8 +108,30 @@ test("merge marks tickets done on the branch, adds the cost line, then merges", 
   run("signup", "merge", deps);
   const t = readFileSync(join(root, ".worktrees", "feature-signup", "tickets/signup/issues/01.md"), "utf8");
   assert.equal(t, "Status: done\n");
-  const order = ["git add tickets/signup", "gh pr edit 7", "git worktree remove", "gh pr merge 7 --squash"];
+  const order = ["git add tickets/signup", "gh pr edit 7", "gh pr merge 7 --squash", "git worktree remove", "git push origin --delete", "git branch -D"];
   const at = order.map((o) => calls.sh.findIndex((c) => c.startsWith(o)));
   assert.ok(at.every((i, k) => i >= 0 && (k === 0 || i > at[k - 1])), `order was ${at}`);
   assert.equal(read().step, "done");
 });
+
+test("a failed merge keeps saved progress and skips cleanup so it can be retried", () => {
+  const { root, read } = setup([{ id: "01" }]);
+  run("signup", undefined, fakes(root, happy).deps);
+  const { deps, calls } = fakes(root, happy);
+  const shell = deps.sh;
+  deps.sh = (cmd, options) => {
+    const result = shell(cmd, options);
+    return cmd.startsWith("gh pr merge") ? { code: 1, out: "merge blocked" } : result;
+  };
+  assert.throws(() => run("signup", "merge", deps), /merge failed: merge blocked/);
+  assert.equal(read().tickets[0].built, "abc");
+  assert.equal(read().pr, 7);
+  assert.ok(!calls.sh.some((cmd) => /worktree remove|push origin --delete|branch -D|git pull/.test(cmd)));
+  assert.ok(!calls.notes.some((note) => note.includes("merged PR")));
+
+  const retry = fakes(root, happy);
+  run("signup", "merge", retry.deps);
+  assert.ok(retry.calls.sh.some((cmd) => cmd.startsWith("gh pr merge")));
+  assert.match(retry.calls.notes.at(-1), /merged PR #7/);
+});
+

@@ -344,13 +344,20 @@ Run \`graph ${feature} <merge|keep|iterate|discard>\` when you're ready.
     const body = deps.sh(`gh pr view ${state.pr} --json body -q .body`, { cwd: wt }).out;
     deps.sh(`gh pr edit ${state.pr} --body-file -`, { cwd: wt, input: `${body.trimEnd()}\n\n${cost}\n` });
 
+    const branch = git("branch --show-current");
+    if (branch.code !== 0 || !branch.out.trim()) throw new Stop("could not read the feature branch");
+    // Keep the worktree and saved progress until GitHub confirms the merge.
+    const merged = deps.sh(`gh pr merge ${state.pr} --squash`, { cwd: root });
+    if (merged.code !== 0) throw new Stop(`merge failed: ${merged.out.trim()}`);
     const removed = deps.sh(`git worktree remove ${q(wt)}`, { cwd: root });
     if (removed.code !== 0)
       throw new Stop(
-        `worktree has leftover changes; tidy it, then run graph ${feature} merge again: ${removed.out.trim()}`,
+        `PR merged, but worktree cleanup failed; saved progress remains at ${wt}: ${removed.out.trim()}`,
       );
-    const merged = deps.sh(`gh pr merge ${state.pr} --squash --delete-branch`, { cwd: root });
-    if (merged.code !== 0) throw new Stop(`merge failed: ${merged.out.trim()}`);
+    for (const cmd of [`git push origin --delete ${q(branch.out.trim())}`, `git branch -D ${q(branch.out.trim())}`]) {
+      const deleted = deps.sh(cmd, { cwd: root });
+      if (deleted.code !== 0) throw new Stop(`PR merged, but branch cleanup failed: ${deleted.out.trim()}`);
+    }
     deps.sh("git pull -q --ff-only", { cwd: root });
     const dirty = deps.sh("git status --porcelain", { cwd: root }).out.trim();
     if (existsSync(join(root, "PLAN.md")) && /Deploy pipeline/.test(readFileSync(join(root, "PLAN.md"), "utf8"))) {
@@ -385,3 +392,4 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     process.exit(1);
   }
 }
+
