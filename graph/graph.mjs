@@ -23,6 +23,10 @@ const MODELS = {
   },
 };
 const ROUNDS = 2;
+// ponytail: one time limit for every AI step; give steps their own limits if some need longer.
+const STEP_MINUTES = 45;
+// Checking steps can read the code and git history, but not change anything.
+const READ_ONLY = "Read,Grep,Glob,Agent,Skill,Bash(git diff *),Bash(git show *),Bash(git log *),Bash(git status *)";
 const DONE = '{"status":"done"}';
 
 export class Stop extends Error {}
@@ -40,28 +44,49 @@ function notify(msg) {
   sh(`osascript -e ${q(`display notification ${JSON.stringify(msg)} with title "graph"`)}`);
 }
 
-// One fresh AI run in the worktree, in the tool's safety mode. Returns the JSON object
-// from the last line of its reply (null if there isn't one), plus the tokens it used.
-export function ai({ tool, strength, prompt, cwd }) {
+// One fresh AI run in the worktree, in the tool's safety mode (or read-only). Returns its reply,
+// the JSON object from the reply's last line (null if there isn't one) and the tokens it used.
+// A run past STEP_MINUTES is killed and counts as a failed step.
+export function ai({ tool, strength, prompt, cwd, readOnly = false }) {
   const tmp = join(tmpdir(), `graph-${process.pid}-${Date.now()}.txt`);
   const args =
     tool === "claude"
-      ? ["claude", "-p", prompt, ...MODELS.claude[strength], "--permission-mode", "auto", "--output-format", "json"]
+      ? [
+          "claude",
+          "-p",
+          prompt,
+          ...MODELS.claude[strength],
+          "--output-format",
+          "json",
+          ...(readOnly
+            ? // user settings may allow any shell command, which would let a "read-only" run write files
+              ["--setting-sources", "project", "--permission-mode", "dontAsk", "--allowedTools", READ_ONLY]
+            : ["--permission-mode", "auto"]),
+        ]
       : [
           "codex",
           "exec",
           "--json",
-          "--approve-for-me",
           ...MODELS.codex[strength],
           "-o",
           tmp,
-          "--add-dir",
-          sh("git rev-parse --path-format=absolute --git-common-dir", { cwd }).out.trim(),
-          "-c",
-          "sandbox_workspace_write.network_access=true",
+          ...(readOnly
+            ? ["-s", "read-only"]
+            : [
+                "--approve-for-me",
+                "--add-dir",
+                sh("git rev-parse --path-format=absolute --git-common-dir", { cwd }).out.trim(),
+                "-c",
+                "sandbox_workspace_write.network_access=true",
+              ]),
           prompt,
         ];
-  const r = spawnSync(args[0], args.slice(1), { cwd, encoding: "utf8", maxBuffer: 1 << 28 });
+  const r = spawnSync(args[0], args.slice(1), {
+    cwd,
+    encoding: "utf8",
+    maxBuffer: 1 << 28,
+    timeout: STEP_MINUTES * 60_000,
+  });
   let text = "",
     tokens = 0;
   try {
@@ -91,7 +116,7 @@ export function ai({ tool, strength, prompt, cwd }) {
   try {
     json = last ? JSON.parse(last.trim()) : null;
   } catch {}
-  return { json, tokens };
+  return { json, tokens, text, timedOut: r.error?.code === "ETIMEDOUT" };
 }
 
 export function run(feature, action, deps = { sh, ai, notify }, tool) {
@@ -113,10 +138,15 @@ export function run(feature, action, deps = { sh, ai, notify }, tool) {
   const title = (readFileSync(join(wt, spec), "utf8").match(/^# (.+)$/m) ?? [, feature])[1];
 
   // One AI step, retried once on the strong model. `ok(reply, strength)` decides if the reply counts.
-  function step(name, strength, prompt, ok = (j) => j?.status === "done") {
+  // `readOnly` steps can't change files, so the program saves their reply to `saveTo` for them.
+  function step(name, strength, prompt, ok = (j) => j?.status === "done", { readOnly = false, saveTo } = {}) {
     for (const s of strength === "light" ? ["light", "strong"] : ["strong"]) {
-      const { json, tokens } = deps.ai({ tool: state.tool, strength: s, prompt, cwd: wt });
-      log(`${name} · ${state.tool}/${s} · ${tokens || "n/a"}`);
+      const { json, tokens, text, timedOut } = deps.ai({ tool: state.tool, strength: s, prompt, cwd: wt, readOnly });
+      log(
+        `${name} · ${state.tool}/${s} · ${tokens || "n/a"}${timedOut ? ` · timed out after ${STEP_MINUTES} min` : ""}`,
+      );
+      if (saveTo && json)
+        writeFileSync(join(wt, saveTo), (text ?? "").trim().split("\n").slice(0, -1).join("\n") + "\n");
       if (ok(json, s)) return json;
     }
     throw new Stop(`${name} failed twice; see tickets/${feature}/log.md`);
@@ -172,9 +202,10 @@ export function run(feature, action, deps = { sh, ai, notify }, tool) {
                 `review ${t.id}`,
                 "strong",
                 brief(
-                  `Review ticket ${t.path} as built in \`git show ${done.sha}\` and any later commits. Write findings to tickets/${feature}/checks/ticket-${t.id}.md. End with {"blockers":<n>}`,
+                  `Review ticket ${t.path} as built in \`git show ${done.sha}\` and any later commits. Don't change any files: list your findings in your reply, most serious first, each marked blocker or minor. End with {"blockers":<n>}`,
                 ),
                 (j) => Number.isInteger(j?.blockers),
+                { readOnly: true, saveTo: `tickets/${feature}/checks/ticket-${t.id}.md` },
               );
               clean = r.blockers === 0;
               if (!clean)
@@ -238,9 +269,10 @@ export function run(feature, action, deps = { sh, ai, notify }, tool) {
           `review round ${n}`,
           "strong",
           brief(
-            `Run the code-review skill on origin/main...HEAD against ${spec}, including its "## Carried to review". Write findings to tickets/${feature}/checks/review-${n}.md, the first one before exploring further. End with {"blockers":<n>,"total":<n>}`,
+            `Run the code-review skill on origin/main...HEAD against ${spec}, including its "## Carried to review". Don't change any files: list your findings in your reply, most serious first, each marked blocker, important or minor. End with {"blockers":<n>,"total":<n>}`,
           ),
           (j) => Number.isInteger(j?.blockers),
+          { readOnly: true, saveTo: `tickets/${feature}/checks/review-${n}.md` },
         );
         log(
           `VERDICT review blockers=${review.blockers} total=${review.total ?? "?"} file=tickets/${feature}/checks/review-${n}.md`,
@@ -342,18 +374,21 @@ Run \`graph ${feature} <merge|keep|iterate|discard>\` when you're ready.
       .reduce((s, l) => s + Number(l.match(/blockers=(\d+)/)?.[1] ?? 0), 0);
     const cost = `Cost: ${runs.length} AI runs · ${tokens.toLocaleString("en")} tokens · ${firstRound} blockers at PR check`;
     const body = deps.sh(`gh pr view ${state.pr} --json body -q .body`, { cwd: wt }).out;
-    deps.sh(`gh pr edit ${state.pr} --body-file -`, { cwd: wt, input: `${body.trimEnd()}\n\n${cost}\n` });
+    if (!/^Cost: /m.test(body))
+      // a retried merge shouldn't add the line twice
+      deps.sh(`gh pr edit ${state.pr} --body-file -`, { cwd: wt, input: `${body.trimEnd()}\n\n${cost}\n` });
 
     const branch = git("branch --show-current");
     if (branch.code !== 0 || !branch.out.trim()) throw new Stop("could not read the feature branch");
     // Keep the worktree and saved progress until GitHub confirms the merge.
-    const merged = deps.sh(`gh pr merge ${state.pr} --squash`, { cwd: root });
-    if (merged.code !== 0) throw new Stop(`merge failed: ${merged.out.trim()}`);
+    // A retry after a failed cleanup finds the PR already merged; skip straight to cleanup.
+    if (deps.sh(`gh pr view ${state.pr} --json state -q .state`, { cwd: root }).out.trim() !== "MERGED") {
+      const merged = deps.sh(`gh pr merge ${state.pr} --squash`, { cwd: root });
+      if (merged.code !== 0) throw new Stop(`merge failed: ${merged.out.trim()}`);
+    }
     const removed = deps.sh(`git worktree remove ${q(wt)}`, { cwd: root });
     if (removed.code !== 0)
-      throw new Stop(
-        `PR merged, but worktree cleanup failed; saved progress remains at ${wt}: ${removed.out.trim()}`,
-      );
+      throw new Stop(`PR merged, but worktree cleanup failed; saved progress remains at ${wt}: ${removed.out.trim()}`);
     for (const cmd of [`git push origin --delete ${q(branch.out.trim())}`, `git branch -D ${q(branch.out.trim())}`]) {
       const deleted = deps.sh(cmd, { cwd: root });
       if (deleted.code !== 0) throw new Stop(`PR merged, but branch cleanup failed: ${deleted.out.trim()}`);
@@ -392,4 +427,3 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     process.exit(1);
   }
 }
-

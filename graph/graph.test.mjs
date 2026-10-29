@@ -17,9 +17,16 @@ function setup(tickets = [{ id: "01" }, { id: "02", risky: true }]) {
   const state = {
     tool: "claude",
     step: "build",
-    tickets: tickets.map((t) => ({ path: `tickets/signup/issues/${t.id}.md`, strength: "light", risky: false, built: null, ...t })),
+    tickets: tickets.map((t) => ({
+      path: `tickets/signup/issues/${t.id}.md`,
+      strength: "light",
+      risky: false,
+      built: null,
+      ...t,
+    })),
   };
-  for (const t of state.tickets) writeFileSync(join(root, ".worktrees", "feature-signup", t.path), "Status: ready-for-agent\n");
+  for (const t of state.tickets)
+    writeFileSync(join(root, ".worktrees", "feature-signup", t.path), "Status: ready-for-agent\n");
   writeFileSync(join(dir, "state.json"), JSON.stringify(state));
   const read = () => JSON.parse(readFileSync(join(dir, "state.json"), "utf8"));
   const log = () => readFileSync(join(dir, "log.md"), "utf8");
@@ -39,8 +46,8 @@ function fakes(root, reply) {
         if (cmd.startsWith("gh pr create")) return { code: 0, out: "https://github.com/me/app/pull/7\n" };
         return { code: 0, out: "" };
       },
-      ai({ strength, prompt }) {
-        calls.ai.push({ strength, prompt });
+      ai({ strength, prompt, readOnly }) {
+        calls.ai.push({ strength, prompt, readOnly });
         return { json: reply(prompt, strength), tokens: 100 };
       },
       notify: (m) => calls.notes.push(m),
@@ -50,7 +57,7 @@ function fakes(root, reply) {
 
 const happy = (prompt) => {
   if (prompt.includes("Build the ticket")) return { status: "done", sha: "abc", concerns: false };
-  if (prompt.includes("{\"blockers\"")) return { blockers: 0, total: 1 };
+  if (prompt.includes('{"blockers"')) return { blockers: 0, total: 1 };
   return { status: "done" };
 };
 
@@ -61,10 +68,16 @@ test("runs every ticket, opens the PR and stops at the merge stop", () => {
   const s = read();
   assert.equal(s.step, "stop3");
   assert.equal(s.pr, 7);
-  assert.deepEqual(s.tickets.map((t) => t.built), ["abc", "abc"]);
+  assert.deepEqual(
+    s.tickets.map((t) => t.built),
+    ["abc", "abc"],
+  );
   assert.match(log(), /built 01 abc[\s\S]*built 02 abc/);
   assert.match(log(), /review 02 · claude\/strong/); // ticket 02 is risky, so it gets a reviewer
   assert.doesNotMatch(log(), /review 01/);
+  const reviews = calls.ai.filter((c) => /Review ticket|code-review skill/.test(c.prompt));
+  assert.ok(reviews.length === 2 && reviews.every((c) => c.readOnly), "review steps run read-only");
+  assert.ok(calls.ai.filter((c) => c.prompt.includes("Build the ticket")).every((c) => !c.readOnly));
   assert.match(log(), /VERDICT review blockers=0/);
   assert.match(calls.notes.at(-1), /PR #7 ready/);
 });
@@ -86,11 +99,16 @@ test("blockers in round 1 get fixed, round 2 comes back clean", () => {
 test("a failed light step retries on strong; a second failure stops and keeps its place", () => {
   const { root, read } = setup([{ id: "01" }, { id: "02" }]);
   const failing = (prompt, strength) =>
-    prompt.includes("issues/02") && prompt.includes("Build the ticket") ? { status: "failed" } : happy(prompt, strength);
+    prompt.includes("issues/02") && prompt.includes("Build the ticket")
+      ? { status: "failed" }
+      : happy(prompt, strength);
   const { deps, calls } = fakes(root, failing);
   assert.throws(() => run("signup", undefined, deps), Stop);
   const tries = calls.ai.filter((c) => c.prompt.includes("issues/02"));
-  assert.deepEqual(tries.map((c) => c.strength), ["light", "strong"]);
+  assert.deepEqual(
+    tries.map((c) => c.strength),
+    ["light", "strong"],
+  );
   assert.equal(read().tickets[0].built, "abc");
   assert.equal(read().tickets[1].built, null);
 
@@ -110,7 +128,10 @@ test("merge marks tickets done on the branch, adds the cost line, then merges", 
   assert.equal(t, "Status: done\n");
   const order = ["git add tickets/signup", "gh pr edit 7", "gh pr merge 7 --squash", "git worktree remove", "git push origin --delete", "git branch -D"];
   const at = order.map((o) => calls.sh.findIndex((c) => c.startsWith(o)));
-  assert.ok(at.every((i, k) => i >= 0 && (k === 0 || i > at[k - 1])), `order was ${at}`);
+  assert.ok(
+    at.every((i, k) => i >= 0 && (k === 0 || i > at[k - 1])),
+    `order was ${at}`,
+  );
   assert.equal(read().step, "done");
 });
 
