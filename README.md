@@ -71,7 +71,8 @@ args = ["@playwright/mcp@latest"]
 | `commit-message` | Suggests a short, plain-English commit message for staged changes. | Mine |
 | `simplify` | Rewrites the last reply in shorter, simpler language. | Mine |
 | `recap` | Tells you where you left off in a project after time away, from git, PRs, tickets and your last sessions. Read-only. | Mine |
-| `develop` | Runs one change from idea to merged PR using the skills below, stopping for you at the spec, the tickets and the merge. Modelled on TechGarden's `/develop`. | Mine |
+| `develop` | Runs one change from idea to merged PR using the skills below, stopping for you at the spec, the tickets and the merge. | Mine |
+| `graph` | Runs the second half of `develop` (build, self-check, PR, reviews) as a program, with a fresh AI per step. Use after `develop`'s tickets are approved. | Mine |
 | `grill-with-docs` | Questions you hard on a plan, writing down decisions and terms as it goes. | [Matt Pocock](https://github.com/mattpocock/skills) |
 | `grill-me` | Questions you hard on a plan, without writing any docs. | [Matt Pocock](https://github.com/mattpocock/skills) |
 | `grilling` | The shared questioning step the two grill skills use. | [Matt Pocock](https://github.com/mattpocock/skills) |
@@ -94,7 +95,7 @@ Matt's usual order: `grill-with-docs` → `to-spec` → `to-tickets` → `implem
 
 ## `develop`
 
-Runs one change from idea to merged PR. Modelled on TechGarden's `/develop`, built on Matt's skills, and works the same in Claude and Codex.
+Runs one change from idea to merged PR. It's built on Matt's skills and works the same in Claude and Codex.
 
 **Start it:** `/develop <what to build>` in Claude, `$develop <what to build>` in Codex. To pick up later: `/develop --resume <feature>`.
 
@@ -116,3 +117,15 @@ The fast lane has a single stop before coding, plus the merge stop.
 **Models:** Claude uses Sonnet for routine work and Opus for hard work, never Fable. Codex uses GPT-6.1-Sol (medium effort, or high for hard work), never Astra.
 
 **Needs:** a project built from [agentic-template](https://github.com/alexalikhani95/agentic-template) (`AGENTS.md` commands, `tickets/`, worktree rules in `docs/agents/workflow.md`), plus the plugins above. Projects with a UI also want a `running-the-app` skill so naive-user can start the app.
+
+## `graph`
+
+`develop` as it is: an AI reads the steps and walks them itself, and after the tickets you switch sessions by hand. `graph` puts steps 4–8 in a program instead. The program walks the steps and starts a fresh AI for each one (`claude -p` or `codex exec`, in each tool's safety mode), so steps can't be skipped and nothing fills up. The rules for each step stay in `develop`.
+
+**Use it** after `develop`'s stop 2, instead of `/develop --resume`:
+
+1. `/graph <feature>` (Codex: `$graph`) writes `tickets/<feature>/state.json` from the approved tickets.
+2. In a terminal: `node ~/.claude/skills/graph/graph.mjs <feature>`. It builds each ticket, self-checks, opens the PR and runs up to 2 review rounds, printing a line per step. You get a Mac notification when the PR is ready or a step fails.
+3. Then `node ~/.claude/skills/graph/graph.mjs <feature> merge` (or `keep`, `iterate`, `discard`). For `iterate`, `/graph <feature> iterate` adds the new tickets first.
+
+A failed step is retried once on the stronger model, then it stops. Running it again carries on where it left off. `--tool claude|codex` switches tool. Tests: `node --test ~/.claude/skills/graph/graph.test.mjs`.
