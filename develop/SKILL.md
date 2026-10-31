@@ -152,10 +152,10 @@ Every stop and the wrap-up summary use this form, in **short, simple words with 
 **What happens next**
 <The next one or two steps. At stop 2: the paste-ready resume prompt.>
 
-**To review:** <path> · <what it holds> · ~<n> min
+**To review:** <absolute path> (in the <worktree folder> worktree) · <what it holds> · ~<n> min
 ```
 
-*What this is* and *What happens next* are never left out. The wrap-up summary swaps the ask for where things stand and drops *To review*.
+*What this is* and *What happens next* are never left out. The wrap-up summary swaps the ask for where things stand and drops *To review*. The path is absolute because the worktree folder is gitignored and often hidden in editors, so a repo-relative path reads as the main checkout.
 
 Example:
 
@@ -173,5 +173,5 @@ The check found 4 problems, none serious; all fixed. Detail: tickets/note-title/
 **What happens next**
 Once you approve, I split it into tickets for you to approve.
 
-**To review:** tickets/note-title/spec.md · the fix and its 3 rules · ~3 min
+**To review:** /Users/me/projects/notes/.worktrees/feature-note-title/tickets/note-title/spec.md (in the feature-note-title worktree) · the fix and its 3 rules · ~3 min
 ```
