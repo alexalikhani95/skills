@@ -22,7 +22,11 @@ The user has asked for a **retrospective**. You are suggesting improvements to t
 - **No-ops**: look for instructions in steering files that don't modify the agent's behavior. _Use when_ the steering files are large and unwieldy.
 - **Information access**: look for opportunities to increase the agent's access to information. Teeing dev server logs, readonly access to third-party services. _Use when_ a crucial piece of information was not available to the agent.
 
-4. Present these candidates to the user, in order of severity.
+4. Present these candidates to the user, in order of severity, in plain everyday words, as if to someone who wasn't watching the session:
+
+   - One or two short sentences per finding: what went wrong, and the fix. No category labels, file-by-file evidence or token counts.
+   - At most five findings. Drop the rest.
+   - End with one question: which ones to fix, and your pick.
 
 ## Reference
 
